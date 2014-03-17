@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <iostream>
+#include <math.h>
 
 #include <windows.h>
 #include <Kinect.h>

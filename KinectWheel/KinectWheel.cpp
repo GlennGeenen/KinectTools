@@ -3,11 +3,33 @@
 
 #include "stdafx.h"
 #include "KinectWheel.h"
+#include "vjoyinterface.h"
 
 using namespace std;
 
+#define HID_USAGE_X		0x30
+#define HID_USAGE_Y		0x31
+
+UINT iInterface=1;	
+
 int _tmain(int argc, _TCHAR* argv[])
 {
+	cout << "Do you want to use the vJoy mode (Y/N)\n";
+
+	if(getchar() == 'Y')
+	{
+		cout << "Started in vJoy Mode.\n";
+		if (argc>1 && wcslen(argv[1]))
+			sscanf_s((char *)(argv[1]), "%d", &iInterface);
+		AcquireVJD(iInterface);
+		ResetVJD(iInterface);
+	}
+	else 
+	{
+		cout << "Started in Keyboard Mode.\n";
+	}
+
+
 	KinectWheel* kinectWheel = new KinectWheel();
 
 	const int TICKS_PER_SECOND = 30;
@@ -30,7 +52,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	return 0;
 }
 
-KinectWheel::KinectWheel(): m_pKinectSensor(NULL), m_pBodyFrameReader(NULL), m_trackingId(0)
+KinectWheel::KinectWheel(bool usejoystick): m_useJoystick(usejoystick), m_pKinectSensor(NULL), m_pBodyFrameReader(NULL), m_trackingId(0)
 {
 	InitializeDefaultSensor();
 }
@@ -168,46 +190,86 @@ void KinectWheel::pressButton(ButtonPress button, bool startPress)
 
 void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePoint& rightHand, const CameraSpacePoint& mid)
 {
-	float forward = 0.4f;
-	float stop = 0.2f;
-
-	if(mid.Z - rightHand.Z > 0 && mid.Z - leftHand.Z > 0
-		&& rightHand.X - leftHand.X < forward)
+	if(m_useJoystick)
 	{
-		if(mid.Z - rightHand.Z > forward && mid.Z - leftHand.Z > forward)
+		if(mid.Z > rightHand.Z && mid.Z > leftHand.Z
+			&& rightHand.X - leftHand.X < 0.5f)
 		{
-			pressButton(ButtonUp);
+			float steerY = (rightHand.Z + leftHand.Z) * 0.5f;
+			steerY = ((mid.Z - steerY) * -66000.0f) + 33000.0f;
+
+			if(steerY > 33000.0f)
+			{
+				steerY = 33000.0f;
+			}
+			if (steerY < 0.0f)
+			{
+				steerY = 0.0f;
+			}
+
+			float deltaX = rightHand.X - leftHand.X;
+			float deltaY = rightHand.Y - leftHand.Y;
+
+			float angle = atan2(deltaX,deltaY) * 180 / 3.14159265358979f;
+
+			if(angle < 0.0f)
+			{
+				angle = 0.0f;
+			}
+			if(angle > 180.0f)
+			{
+				angle = 180.0f;
+			}
+
+			angle *= 180.0f;
+
+			SetAxis(angle, iInterface, HID_USAGE_X);
+			SetAxis(steerY, iInterface, HID_USAGE_Y);
 		}
-		else if(keysPressed[ButtonUp])
+	}
+	else 
+	{
+		float forward = 0.4f;
+		float stop = 0.2f;
+
+		if(mid.Z - rightHand.Z > 0 && mid.Z - leftHand.Z > 0
+			&& rightHand.X - leftHand.X < forward)
 		{
-			pressButton(ButtonUp, false);
-		}
+			if(mid.Z - rightHand.Z > forward && mid.Z - leftHand.Z > forward)
+			{
+				pressButton(ButtonUp);
+			}
+			else if(keysPressed[ButtonUp])
+			{
+				pressButton(ButtonUp, false);
+			}
 		
-		if(mid.Z - rightHand.Z < stop && mid.Z - leftHand.Z < stop)
-		{
-			pressButton(ButtonDown);
-		}
-		else if(keysPressed[ButtonDown])
-		{
-			pressButton(ButtonDown, false);
-		}
+			if(mid.Z - rightHand.Z < stop && mid.Z - leftHand.Z < stop)
+			{
+				pressButton(ButtonDown);
+			}
+			else if(keysPressed[ButtonDown])
+			{
+				pressButton(ButtonDown, false);
+			}
 
-		if(rightHand.Y - leftHand.Y > 0.1f)
-		{
-			pressButton(ButtonLeft);
-		}
-		else if(keysPressed[ButtonLeft])
-		{
-			pressButton(ButtonLeft, false);
-		}
+			if(rightHand.Y - leftHand.Y > 0.1f)
+			{
+				pressButton(ButtonLeft);
+			}
+			else if(keysPressed[ButtonLeft])
+			{
+				pressButton(ButtonLeft, false);
+			}
 
-		if(leftHand.Y - rightHand.Y > 0.1f)
-		{
-			pressButton(ButtonRight);
-		}
-		else if(keysPressed[ButtonRight])
-		{
-			pressButton(ButtonRight, false);
+			if(leftHand.Y - rightHand.Y > 0.1f)
+			{
+				pressButton(ButtonRight);
+			}
+			else if(keysPressed[ButtonRight])
+			{
+				pressButton(ButtonRight, false);
+			}
 		}
 	}
 }
