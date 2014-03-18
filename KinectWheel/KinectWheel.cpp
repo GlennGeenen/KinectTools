@@ -2,6 +2,7 @@
 //
 
 #include "stdafx.h"
+#include <conio.h>
 #include "KinectWheel.h"
 #include "vjoyinterface.h"
 
@@ -16,11 +17,16 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	cout << "Do you want to use the vJoy mode (Y/N)\n";
 
-	if(getchar() == 'Y')
+	char c;
+	cin >> c;
+
+	if(c == 'Y')
 	{
 		cout << "Started in vJoy Mode.\n";
 		if (argc>1 && wcslen(argv[1]))
+		{
 			sscanf_s((char *)(argv[1]), "%d", &iInterface);
+		}
 		AcquireVJD(iInterface);
 		ResetVJD(iInterface);
 	}
@@ -28,7 +34,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		cout << "Started in Keyboard Mode.\n";
 	}
-
 
 	KinectWheel* kinectWheel = new KinectWheel();
 
@@ -79,26 +84,18 @@ void KinectWheel::Update()
         IBody* ppBodies[BODY_COUNT] = {0};
 		hr = pBodyFrame->GetAndRefreshBodyData(_countof(ppBodies), ppBodies);
 
-		if(_countof(ppBodies) > 0)
+		if (SUCCEEDED(hr))
 		{
 			if(m_trackingId == 0)
 			{
 				m_trackingId = getTrackingId(BODY_COUNT, ppBodies);
 			}
-
-			if (SUCCEEDED(hr))
-			{
-				ProcessBody(BODY_COUNT, ppBodies);
-			}
-
-			for (int i = 0; i < _countof(ppBodies); ++i)
-			{
-				SafeRelease(ppBodies[i]);
-			}
+			ProcessBody(BODY_COUNT, ppBodies);
 		}
-		else 
+
+		for (int i = 0; i < _countof(ppBodies); ++i)
 		{
-			m_trackingId = 0;
+			SafeRelease(ppBodies[i]);
 		}
     }
 
@@ -193,7 +190,8 @@ void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePo
 	if(m_useJoystick)
 	{
 		if(mid.Z > rightHand.Z && mid.Z > leftHand.Z
-			&& rightHand.X - leftHand.X < 0.5f)
+			&& rightHand.X - leftHand.X < 0.5f
+			&& rightHand.Y > mid.Y && leftHand.Y > mid.Y)
 		{
 			float steerY = (rightHand.Z + leftHand.Z) * 0.5f;
 			steerY = ((mid.Z - steerY) * -66000.0f) + 33000.0f;
@@ -212,16 +210,25 @@ void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePo
 
 			float angle = atan2(deltaX,deltaY) * 180 / 3.14159265358979f;
 
+			if(angle > 92)
+			{
+				angle * 1.2f;
+			}
+			else if(angle < 88)
+			{
+				angle * 0.8333f;
+			}
+
+			// Scale to 33000
+			angle *= 183.33f;
 			if(angle < 0.0f)
 			{
 				angle = 0.0f;
 			}
-			if(angle > 180.0f)
+			if(angle > 33000.0f)
 			{
-				angle = 180.0f;
+				angle = 33000.0f;
 			}
-
-			angle *= 180.0f;
 
 			SetAxis(angle, iInterface, HID_USAGE_X);
 			SetAxis(steerY, iInterface, HID_USAGE_Y);
@@ -233,8 +240,10 @@ void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePo
 		float stop = 0.2f;
 
 		if(mid.Z - rightHand.Z > 0 && mid.Z - leftHand.Z > 0
-			&& rightHand.X - leftHand.X < forward)
+			&& rightHand.X - leftHand.X < forward
+			&& rightHand.Y > mid.Y && leftHand.Y > mid.Y)
 		{
+
 			if(mid.Z - rightHand.Z > forward && mid.Z - leftHand.Z > forward)
 			{
 				pressButton(ButtonUp);
@@ -314,13 +323,15 @@ UINT64 KinectWheel::getTrackingId(int nBodyCount, IBody** ppBodies)
 void KinectWheel::ProcessBody(int nBodyCount, IBody** ppBodies)
 {
 	UINT64 trackingid = 0;
-
+	bool hasTrackingId = false;
     for (int i = 0; i < nBodyCount; ++i)
     {
         IBody* pBody = ppBodies[i];
 		pBody->get_TrackingId(&trackingid);
 		if (pBody && trackingid == m_trackingId)
         {
+			hasTrackingId = true;
+
             BOOLEAN bTracked = false;
             HRESULT hr = pBody->get_IsTracked(&bTracked);
 
@@ -338,9 +349,14 @@ void KinectWheel::ProcessBody(int nBodyCount, IBody** ppBodies)
                 {
 					steerCar(joints[JointType_HandLeft].Position,
 							joints[JointType_HandRight].Position,
-							joints[JointType_SpineMid].Position);
+							joints[JointType_SpineBase].Position);
 				}
             }
         }
     }
+
+	if(!hasTrackingId)
+	{
+		m_trackingId = 0;
+	}
 }
