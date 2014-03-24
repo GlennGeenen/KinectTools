@@ -189,13 +189,24 @@ void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePo
 {
 	if(m_useJoystick)
 	{
+		float offsetZ = 0.15f;
+
 		if(mid.Z > rightHand.Z && mid.Z > leftHand.Z
 			&& rightHand.X - leftHand.X < 0.5f
 			&& rightHand.Y > mid.Y && leftHand.Y > mid.Y)
 		{
 			float steerY = (rightHand.Z + leftHand.Z) * 0.5f;
-			steerY = ((mid.Z - steerY) * -66000.0f) + 33000.0f;
+			
+			// Scale input from 0 to 33000
 
+			// 2.85f is used to have maximum speed when holding your hands 0.5m in front of your body
+			// An offset of 0.15m is used because you can't hold your hands in your body
+
+			steerY = (mid.Z - steerY - offsetZ) * 2.85f;
+
+			// The value 33000 represents going reverse full speed
+			steerY = 1 - steerY;
+			steerY *= 33000.0f;
 			if(steerY > 33000.0f)
 			{
 				steerY = 33000.0f;
@@ -208,36 +219,35 @@ void KinectWheel::steerCar(const CameraSpacePoint& leftHand, const CameraSpacePo
 			float deltaX = rightHand.X - leftHand.X;
 			float deltaY = rightHand.Y - leftHand.Y;
 
-			float angle = atan2(deltaX,deltaY) * 180 / 3.14159265358979f;
+			// Get angle between 0 and 180
+			float steerX = atan2(deltaX,deltaY) * 180 / 3.14159265358979f;
 
-			if(angle > 92)
+			// Scale input from 0 to 33000
+			steerX *= 183.333f;
+			if(steerX < 0.0f)
 			{
-				angle * 1.2f;
+				steerX = 0.0f;
 			}
-			else if(angle < 88)
+			if(steerX > 33000.0f)
 			{
-				angle * 0.8333f;
-			}
-
-			// Scale to 33000
-			angle *= 183.33f;
-			if(angle < 0.0f)
-			{
-				angle = 0.0f;
-			}
-			if(angle > 33000.0f)
-			{
-				angle = 33000.0f;
+				steerX = 33000.0f;
 			}
 
-			SetAxis(angle, iInterface, HID_USAGE_X);
+			// Filter inacurate angle
+			if(steerX < 10000 && rightHand.Y < leftHand.Y
+				|| steerX > 23000 && leftHand.Y < rightHand.Y)
+			{
+				steerX = 33000 - steerX;
+			}
+
+			SetAxis(steerX, iInterface, HID_USAGE_X);
 			SetAxis(steerY, iInterface, HID_USAGE_Y);
 		}
 	}
 	else 
 	{
 		float forward = 0.4f;
-		float stop = 0.2f;
+		float stop = 0.25f;
 
 		if(mid.Z - rightHand.Z > 0 && mid.Z - leftHand.Z > 0
 			&& rightHand.X - leftHand.X < forward
