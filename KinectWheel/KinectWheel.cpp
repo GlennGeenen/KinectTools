@@ -20,7 +20,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	char c;
 	cin >> c;
 
-	if(c == 'Y')
+	if(c == 'Y' || c == 'y')
 	{
 		cout << "Started in vJoy Mode.\n";
 		if (argc>1 && wcslen(argv[1]))
