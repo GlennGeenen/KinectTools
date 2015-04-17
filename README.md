@@ -10,6 +10,6 @@ vJoy is a virtual joystick, your kinect movement will be translated in to a virt
 ===========
 
 Future Features:
-- Allow you to configure the keys
+- Translate kinect movement in button presses
 - Simulate to be a gamepad (xbox controller)
 
