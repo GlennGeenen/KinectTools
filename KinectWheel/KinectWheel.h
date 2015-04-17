@@ -13,7 +13,7 @@ class KinectWheel
 {
 public:
 
-	KinectWheel(bool usejoystick = true);
+	KinectWheel();
     ~KinectWheel();
 
 	void Update();
@@ -21,7 +21,6 @@ public:
 private:
 
 	// Private Members
-	bool m_useJoystick;
 	IKinectSensor* m_pKinectSensor;
 	IBodyFrameReader* m_pBodyFrameReader;
 	UINT64 m_trackingId;
