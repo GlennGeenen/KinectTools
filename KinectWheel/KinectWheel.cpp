@@ -21,15 +21,21 @@ int _tmain(int argc, _TCHAR* argv[])
 		return -2; 
 	}
 
-	cout << "Started in vJoy Mode.\n";
-	if (argc>1 && wcslen(argv[1]))
+	VjdStat status = GetVJDStatus(iInterface);
+	// Acquire the target
+	if ((status == VJD_STAT_OWN) || ((status == VJD_STAT_FREE) && (! AcquireVJD(iInterface))))
 	{
-		sscanf_s((char *)(argv[1]), "%d", &iInterface);
+		cout << "Failed to acquire vJoy device\n";
+		return -1;
 	}
-	AcquireVJD(iInterface);
-	ResetVJD(iInterface);
+	else
+	{
+		cout << "Acquired vJoy device\n";
+	}
 
 	KinectWheel* kinectWheel = new KinectWheel();
+
+	ResetVJD(iInterface);
 
 	const int TICKS_PER_SECOND = 30;
 	const int SKIP_TICKS = 1000 / TICKS_PER_SECOND;
@@ -208,11 +214,6 @@ UINT64 KinectWheel::getTrackingId(int nBodyCount, IBody** ppBodies)
 			if (SUCCEEDED(hr) && bTracked)
 			{
 				Joint joints[JointType_Count];
-				HandState leftHandState = HandState_Unknown;
-				HandState rightHandState = HandState_Unknown;
-
-				pBody->get_HandLeftState(&leftHandState);
-				pBody->get_HandRightState(&rightHandState);
 
 				hr = pBody->GetJoints(_countof(joints), joints);
 				if (SUCCEEDED(hr))
